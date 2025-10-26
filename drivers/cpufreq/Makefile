@@ -8,10 +8,15 @@ obj-$(CONFIG_CPU_FREQ_STAT)             += cpufreq_stats.o
 obj-$(CONFIG_CPU_FREQ_LIMIT)             += cpufreq_limit.o
 
 # CPUfreq governors 
+obj-$(CONFIG_CPU_FREQ_GOV_BLU_ACTIVE)   += cpufreq_blu_active.o
 obj-$(CONFIG_CPU_FREQ_GOV_PERFORMANCE)	+= cpufreq_performance.o
 obj-$(CONFIG_CPU_FREQ_GOV_POWERSAVE)	+= cpufreq_powersave.o
 obj-$(CONFIG_CPU_FREQ_GOV_USERSPACE)	+= cpufreq_userspace.o
+obj-$(CONFIG_CPU_FREQ_GOV_INTELLIACTIVE) += cpufreq_intelliactive.o
+obj-$(CONFIG_CPU_FREQ_GOV_BLU_ACTIVE)	+= cpufreq_blu_active.o
+obj-$(CONFIG_CPU_FREQ_GOV_CAFACTIVE)	+= cpufreq_cafactive.o
 obj-$(CONFIG_CPU_FREQ_GOV_ONDEMAND)	+= cpufreq_ondemand.o
+obj-$(CONFIG_CPU_FREQ_GOV_ELECTRON)	+= cpufreq_electron.o
 obj-$(CONFIG_CPU_FREQ_GOV_CONSERVATIVE)	+= cpufreq_conservative.o
 obj-$(CONFIG_CPU_FREQ_GOV_INTERACTIVE)	+= cpufreq_interactive.o
 obj-$(CONFIG_CPU_FREQ_GOV_COMMON)		+= cpufreq_governor.o

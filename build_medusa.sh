@@ -5,7 +5,7 @@
 # Set defaults directory's
 ROOT_DIR=$(pwd)
 OUT_DIR=$ROOT_DIR/out
-# ANYKERNEL_DIR=$ROOT_DIR/anykernel3
+ANYKERNEL_DIR=$ROOT_DIR/anykernel3
 KERNEL_DIR=$ROOT_DIR
 DATE=$(date +"%m-%d-%y")
 BUILD_START=$(date +"%s")
@@ -16,7 +16,8 @@ export SUBARCH=arm
 
 # Set kernel name and defconfig
 # export VERSION=
-export DEFCONFIG=j4primelte_defconfig
+DEF=j4primelte_defconfig
+export DEFCONFIG=$DEF
 
 # Keep it as is
 export LOCALVERSION=$VERSION
@@ -37,7 +38,7 @@ reset=`tput sgr0`
 
 # Cross-compiler exporting
 	# Export ARM from the given directory
-	export CROSS_COMPILE=~/gcc/bin/arm-linux-androideabi-
+	export CROSS_COMPILE=$(pwd)/gcc/bin/arm-linux-androideabi-
 
 echo -e "*****************************************************"
 echo    "            Compiling kernel using GCC               "
@@ -70,7 +71,7 @@ if [ $MRPROPER_SUCCESS != 0 ]
 	then
 		echo "$red Error: make mrproper failed"
 		exit
-fi 
+fi
 
 # Make your device device_defconfig
 make O=$OUT_DIR ARCH=$ARCH KCFLAGS=-mno-android $DEFCONFIG
@@ -80,6 +81,10 @@ if [ $DEFCONFIG_SUCCESS != 0 ]
 		echo "$red Error: make $DEFCONFIG failed, specified a defconfig not present? $reset"
 		exit
 fi
+
+echo "$DEFCONFIG" > defconfigname
+echo "$DEFCONFIG" > ${HOME}/infoscripts/defconfigname
+sh ${HOME}/infoscripts/buildstarted.sh
 
 # Build Kernel
 make O=$OUT_DIR ARCH=$ARCH KCFLAGS=-mno-android -j$(nproc --all)
@@ -91,6 +96,7 @@ DIFF=$(($BUILD_END - $BUILD_START))
 BUILD_SUCCESS=$?
 if [ $BUILD_SUCCESS != 0 ]
 	then
+		sh ~/buildfailed.sh
 		echo "$red Error: Build failed in $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds $reset"
 		exit
 fi
@@ -98,4 +104,21 @@ fi
 
 echo -e "$green Build completed in $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds $reset"
 
-exit
+# Compress compiled image
+cd $ANYKERNELDIR
+cp $OUT_DIR/arch/arm/boot/zImage-dtb $ANYKERNEL_DIR
+
+if [ "$DEF" = "j4primelte_defconfig" ]; then
+	zip -r "ProjectMedusa-$(date +"%d-%m-%Y")-j4primelte.zip" *
+else
+	zip -r "ProjectMedusa-$(date +"%d-%m-%Y")-j6primelte.zip" *
+fi
+
+# Upload drive with rclone
+cp ProjectMedusa-*.zip ~/drive/ProjectMedusa/Test/
+sh ${HOME}/infoscripts/driveinfo.sh
+
+sleep 5
+
+# Upload to Telegram
+sh ${HOME}/infoscripts/buildcompleted.sh

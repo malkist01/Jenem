@@ -101,6 +101,7 @@ obj-$(CONFIG_MSM_SECURE_BUFFER) += secure_buffer.o
 obj-$(CONFIG_TRACER_PKT) += tracer_pkt.o
 obj-$(CONFIG_MSM_BAM_DMUX) += bam_dmux.o
 obj-$(CONFIG_MSM_SERVICE_LOCATOR) += service-locator.o
+obj-$(CONFIG_MSM_HOTPLUG) += msm_hotplug.o
 obj-$(CONFIG_MSM_QBT1000) += qbt1000.o
 obj-$(CONFIG_MSM_SCM_XPU) += scm-xpu.o
 obj-$(CONFIG_MSM_KERNEL_PROTECT) += kernel_protect.o
@@ -109,4 +110,7 @@ obj-$(CONFIG_MSM_REMOTEQDSS) += remoteqdss.o
 obj-$(CONFIG_QCOM_SMCINVOKE) += smcinvoke.o
 obj-$(CONFIG_QCOM_EARLY_RANDOM)	+= early_random.o
 obj-$(CONFIG_MSM_HAB) += hab/
+obj-$(CONFIG_STATE_NOTIFIER)   += state_notifier.o
+
 obj-$(CONFIG_QCOM_QDSS_BRIDGE) += qdss_bridge.o
+obj-$(CONFIG_STATE_NOTIFIER)		+= state_notifier.o
