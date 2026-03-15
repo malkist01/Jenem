@@ -1,0 +1,163 @@
+name: J6prime KSU
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        codename:
+          - j6primelte
+
+    env:
+      BOT_TOKEN: 7868194496:AAGY7WwRRbeCOPYOnczoCPh2psC43Q0F3JI
+      CHAT_ID: -1002287610863
+      KERNEL_VER: Teletubies
+      KERNEL_BRANCH: pure
+      KERNEL_REPO: https://github.com/malkist01/Jenem
+      ANYKERNEL_REPO: https://github.com/DooPrjkt/Anykernel3
+      CLANG_URL: https://github.com/KudProject/arm-linux-androideabi-4.9.git
+      KSU_URL: https://raw.githubusercontent.com/Sorayukii/KernelSU-Next/stable/kernel/setup.sh
+      KSU_BRANCH: hookless
+
+    steps:
+    - name: Checkout workflow repo
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install git make bc bison \
+          openssl curl zip kmod cpio flex libelf-dev \
+          libssl-dev libtfm-dev wget device-tree-compiler \
+          ca-certificates python3 python2 binutils \
+          binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
+
+    - name: Clone kernel source
+      run: |
+        git clone --depth=1 "$KERNEL_REPO" -b "$KERNEL_BRANCH" kernel
+        cd kernel
+        echo "KERNEL_DIR=$(pwd)" >> $GITHUB_ENV
+
+    - name: Clone AnyKernel3
+      run: |
+        cd $KERNEL_DIR
+        git clone --depth=1 -b "${{ matrix.codename }}" "$ANYKERNEL_REPO" AnyKernel3
+        echo "ANYKERNEL_DIR=$KERNEL_DIR/AnyKernel3" >> $GITHUB_ENV
+
+    - name: Clone clang
+      run: |
+        cd $KERNEL_DIR
+        git clone --depth=1 -b master "$CLANG_URL" clang
+        echo "CLANG_DIR=$KERNEL_DIR/clang" >> $GITHUB_ENV
+
+    - name: Set up RKSU
+      run: |
+        cd $KERNEL_DIR
+        curl -LSs "$KSU_URL" | bash -s $KSU_BRANCH
+
+    - name: Generate defconfig
+      run: |
+        cd $KERNEL_DIR
+        CONFIG_NAME="${{ matrix.codename }}_defconfig"
+        DEFCONFIG_PATH="arch/arm/configs/$CONFIG_NAME"
+        echo "CONFIG_KSU=y" >> "${DEFCONFIG_PATH}"
+        echo "CONFIG_KSU_TAMPER_SYSCALL_TABLE=y" >> "${DEFCONFIG_PATH}"
+        echo "CONFIG_KSU_EXTRAS=y" >> "${DEFCONFIG_PATH}"
+        sed -i "s/CONFIG_LOCALVERSION=\"-perf\"/CONFIG_LOCALVERSION=\"-$KERNEL_VER\"/" "$DEFCONFIG_PATH"
+        make O=out ARCH=arm "$CONFIG_NAME"
+        mv out/.config "$DEFCONFIG_PATH"
+
+    - name: Build kernel
+      run: |
+        escape_markdown_v2() { 
+            echo "$1" | sed -e 's/\\/\\\\/g' -e 's/_/\\_/g' -e 's/\*/\\*/g' -e 's/\[/\\[/g' -e 's/\]/\\]/g' -e 's/(/\\(/g' -e 's/)/\\)/g' -e 's/~/\\~/g' -e 's/`/\\`/g' -e 's/>/\\>/g' -e 's/#/\\#/g' -e 's/+/\\+/g' -e 's/-/\\-/g' -e 's/=/\\=/g' -e 's/|/\\|/g' -e 's/{/\\{/g' -e 's/}/\\}/g';
+        }
+
+        send_telegram_message() {
+            local MESSAGE="$1"
+            curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+                -d "chat_id=$CHAT_ID" \
+                -d "text=$MESSAGE"
+        }
+
+        send_telegram_file() {
+            local FILE_PATH="$1"
+            local FILE_NAME=$(basename "$FILE_PATH")
+            local ESCAPED_NAME=$(escape_markdown_v2 "$FILE_NAME")
+            local CAPTION="\`$ESCAPED_NAME\`"
+
+            curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
+                -F "chat_id=$CHAT_ID" \
+                -F "document=@$FILE_PATH" \
+                -F "caption=$CAPTION" \
+                -F "parse_mode=MarkdownV2"
+        }
+
+        stop_handler() {
+          send_telegram_message "⚠️ Compilation was unexpectedly stopped!"
+          [ -f "$LOG_FILE" ] && send_telegram_file "$LOG_FILE"
+          exit 1
+        }
+
+        trap stop_handler ERR INT
+
+        cd $KERNEL_DIR
+        LOG_FILE=$KERNEL_DIR/build.log
+        OUT_DIR=$KERNEL_DIR/out
+        KERNEL_IMAGE_DIR=$OUT_DIR/arch/arm64/boot
+        KERNEL_IMAGE=$KERNEL_IMAGE_DIR/Image.gz
+        CONFIG_NAME="${{ matrix.codename }}_defconfig"
+        KERNEL_COMMIT_ID=$(git rev-parse --short=7 HEAD)
+        ZIP_NAME="${KERNEL_VER}_${{ matrix.codename }}-allSU-$(date +%Y%m%d)-${KERNEL_COMMIT_ID}.zip"
+        echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+        echo "LOG_FILE=$LOG_FILE" >> $GITHUB_ENV
+
+        send_telegram_message "🔨 Starting kernel compilation for $CODENAME on branch $KERNEL_BRANCH"
+
+        export KBUILD_BUILD_USER=ivy
+        export KBUILD_BUILD_HOST="$KERNEL_COMMIT_ID"
+        export PATH="$CLANG_DIR/bin:$PATH"
+        mkdir -p "$OUT_DIR"
+
+        make O="$OUT_DIR" ARCH=arm "$CONFIG_NAME"
+        make -j$(nproc) O="$OUT_DIR" ARCH=arm \
+          CROSS_COMPILE=arm-linux-gnueabi- \
+          2>&1 | tee -a "$LOG_FILE"
+
+        BUILD_RESULT=${PIPESTATUS[0]}
+
+        if [ "$BUILD_RESULT" -ne 0 ]; then
+          send_telegram_message "❌ Compilation failed for ${{ matrix.codename }}!"
+          send_telegram_file "$LOG_FILE"
+          exit 1
+        fi
+
+        cp "$KERNEL_IMAGE" "$ANYKERNEL_DIR/Image.gz-dtb"
+        cd "$ANYKERNEL_DIR"
+        zip -r9 "../$ZIP_NAME" ./* > /dev/null
+        cd "$KERNEL_DIR"
+
+        send_telegram_file "$ZIP_NAME"
+        send_telegram_file "$LOG_FILE"
+        send_telegram_message "✅ Compilation completed for ${{ matrix.codename }} Flashable zip is ready."
+
+    - name: Upload kernel zip artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.codename }}-${{ env.ZIP_NAME }}
+        path: ${{ env.KERNEL_DIR }}/${{ env.ZIP_NAME }}
+
+    - name: Upload build log artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-log-${{ matrix.codename }}
+        path: ${{ env.LOG_FILE }}
+
+        
