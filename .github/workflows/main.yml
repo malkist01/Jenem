@@ -19,7 +19,7 @@ jobs:
       KERNEL_VER: Teletubies
       KERNEL_BRANCH: pure
       KERNEL_REPO: https://github.com/malkist01/Jenem
-      ANYKERNEL_REPO: https://github.com/DooPrjkt/Anykernel3
+      ANYKERNEL_REPO: https://github.com/malkist01/anykernel3
       CLANG_URL: https://github.com/KudProject/arm-linux-androideabi-4.9.git
       KSU_URL: https://raw.githubusercontent.com/Sorayukii/KernelSU-Next/stable/kernel/setup.sh
       KSU_BRANCH: hookless
@@ -43,7 +43,7 @@ jobs:
     - name: Clone AnyKernel3
       run: |
         cd $KERNEL_DIR
-        git clone --depth=1 -b "${{ matrix.codename }}" "$ANYKERNEL_REPO" AnyKernel3
+        git clone --depth=1 -b master "$ANYKERNEL_REPO" AnyKernel3
         echo "ANYKERNEL_DIR=$KERNEL_DIR/AnyKernel3" >> $GITHUB_ENV
 
     - name: Clone clang
