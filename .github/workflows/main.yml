@@ -118,12 +118,12 @@ jobs:
 
         export KBUILD_BUILD_USER=ivy
         export KBUILD_BUILD_HOST="$KERNEL_COMMIT_ID"
+        export CROSS_COMPILE="$CLANG_DIR/bin/arm-linux-androideabi-"
         export PATH="$CLANG_DIR/bin:$PATH"
         mkdir -p "$OUT_DIR"
 
         make O="$OUT_DIR" ARCH=arm "$CONFIG_NAME"
         make -j$(nproc) O="$OUT_DIR" ARCH=arm \
-          CROSS_COMPILE=arm-linux-gnueabi- \
           2>&1 | tee -a "$LOG_FILE"
 
         BUILD_RESULT=${PIPESTATUS[0]}
